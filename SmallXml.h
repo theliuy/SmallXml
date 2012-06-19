@@ -9,6 +9,8 @@ Author: Yang Liu
 #ifndef SMALL_XML_H
 #define SMALL_XML_H
 
+#include <string>
+
 namespace SmallXml {
 
 /*
@@ -76,12 +78,23 @@ class XmlNode {
   void PushChild(XmlNode * child);
   void InsertChildBefore(XmlNode * child, XmlNode * target);
   void InsertChildAfter(XmlNode * child, XmlNode * target);
+  
+  /*
+    Attributes
+    Sample usage
+    // Add Attribute
+    node.SetAttribute(name, value);
+    // Get Attribute
+    std::string value = node.GetAttribute(name);
+  */
+  // void SetAttribute(const std::string & name, const std::string & value);
+  // std::string GetAttribute(const std::string & name);
 
   /*
     ToString
     Return a string in Xml format
   */
-  std::string ToString() const; 
+  std::string ToString(int indent = 0) const;
 
   // Get and set
   /*
@@ -89,15 +102,25 @@ class XmlNode {
     Get - return a copy of type_.
     Set - Not allowed.
   */
-  NodeType type() const;
+  int type() const;
   
   /*
     Sibling
     Get - Return prev or next silbing.
-    Set - Not allowed
   */
-  XmlNode * prev();
-  XmlNode * next();
+  XmlNode * PreviousSibling() const;
+  XmlNode * PreviousSibling();
+  XmlNode * NextSibling() const;
+  XmlNode * NextSibling();
+
+  /*
+    Children
+    Get - Return first or last child
+  */
+  XmlNode * FirstChild() const;
+  XmlNode * FirstChild();
+  XmlNode * LastChild() const;
+  XmlNode * LastChild();
 
   /*
     Value
@@ -106,12 +129,19 @@ class XmlNode {
       Plain Text of Element
     Set - Set the value above
   */
-  std::string content() const;
-  std::string & content();
-  std::string tag();
+  std::string text() const;
+  std::string & text();
+  std::string tag() const;
   std::string & tag();
 
  private:
+  /*
+    ToString as type
+  */
+  std::string ToStringAsElement(int indent);
+  std::string ToStringAsComment(int indent);
+  std::string ToStringAsDeclaration(int indent);
+
   // Type of this node
   NodeType type_;
 
@@ -124,13 +154,15 @@ class XmlNode {
   XmlNode * first_child_;
   XmlNode * last_child_;
 
-  // Value has different meaning to different type.
-  // For Element, value_ is the plain text
-  // For Comment, value_ is the comment.
+  // text_ has different meaning to different type.
+  // For Element, text_ is the plain text
+  // For Comment, text_ is the comment.
   // For Declaration and Unkown, it is empty.
   std::string text_;
+  // tag_ is only used by element
+  // it is the name of tag
   std::string tag_;
-}
+};
 
 }
 
