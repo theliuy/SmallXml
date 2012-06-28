@@ -10,6 +10,8 @@ Author: Yang Liu
 #define SMALL_XML_H
 
 #include <string>
+#include <map>
+#include <vector>
 
 namespace SmallXml {
 
@@ -54,6 +56,11 @@ class XmlNode {
   XmlNode(NodeType type, const std::string & value);
   
   /*
+    Copy Constructor
+  */
+  XmlNode(const XmlNode & node);
+  
+  /*
     Destructor
   */
   ~XmlNode();
@@ -66,18 +73,30 @@ class XmlNode {
     InsertChildBefore - Insert a child before a target node
     InsertChildAfter - Insert a child after a target node
     
+    NOTE:
+    When these functions called, the XmlNode object will be copied.
+    If insertion successes, a pointer points to the new object in the
+    DOM. If failed, they return null pointers. The newly allocated 
+    memory will be released when the parent object is destroyed.
+    
     Sample Usage
     XmlNode parent, child1, child2, child3;
     // Add child1 as parent's last Child
-    parent.PushChild(&child1);
+    XmlNode * p_child1 = parent.PushChild(child1);
     // Add child2 before child1
-    parent.InsertChildBefore(&child2, &child1);
+    XmlNode * p_child2 = parent.InsertChildBefore(child2, p_child1);
     // Add child3 after child1
-    parent.InsertChildAfter(&child3, &child1);
+    XmlNode * p_child3 = parent.InsertChildAfter(child3, p_child1);
   */
-  void PushChild(XmlNode * child);
-  void InsertChildBefore(XmlNode * child, XmlNode * target);
-  void InsertChildAfter(XmlNode * child, XmlNode * target);
+  XmlNode * PushChild(const XmlNode & node);
+  XmlNode * InsertChildBefore(const XmlNode & node, XmlNode * before_this);
+  XmlNode * InsertChildAfter(const XmlNode & node, XmlNode * after_this);
+  
+  /*
+    Number of children
+  */
+  int NumOfChildren() const;
+  bool HasChild() const;
   
   /*
     Attributes
@@ -87,8 +106,9 @@ class XmlNode {
     // Get Attribute
     std::string value = node.GetAttribute(name);
   */
-  // void SetAttribute(const std::string & name, const std::string & value);
-  // std::string GetAttribute(const std::string & name);
+  void SetAttribute(const std::string & name, const std::string & value);
+  std::string GetAttribute(const std::string & name) const;
+  std::vector<std::pair<std::string, std::string> > GetAttributes() const;
 
   /*
     ToString
@@ -103,6 +123,7 @@ class XmlNode {
     Set - Not allowed.
   */
   int type() const;
+  std::string typeAsString() const;
   
   /*
     Sibling
@@ -130,22 +151,26 @@ class XmlNode {
     Set - Set the value above
   */
   std::string text() const;
-  std::string & text();
+  void set_text(const std::string & text);
   std::string tag() const;
-  std::string & tag();
+  void set_tag(const std::string & tag);
 
  private:
   /*
     ToString as type
   */
-  std::string ToStringAsElement(int indent);
-  std::string ToStringAsComment(int indent);
-  std::string ToStringAsDeclaration(int indent);
+  std::string ToStringAsElement(int indent) const;
+  std::string ToStringAsComment(int indent) const;
+  std::string ToStringAsDeclaration(int indent) const;
+  std::string ToStringAsUnknown(int indent) const;
 
   // Type of this node
   NodeType type_;
+  
+  // Parent of this node
+  XmlNode * parent_;
 
-  // Next and Previous sibling
+  // Next and Previous siblings
   XmlNode * prev_;
   XmlNode * next_;
 
@@ -162,6 +187,12 @@ class XmlNode {
   // tag_ is only used by element
   // it is the name of tag
   std::string tag_;
+  
+  // Attribute map
+  // According to Xml 1.1, value of attributes should be
+  // string. Thus, a map in map<string, string> is used to
+  // present attributes.
+  std::map<std::string, std::string> attributes_;
 };
 
 }
