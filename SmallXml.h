@@ -30,8 +30,16 @@ class XmlNode {
   enum NodeType {
     ELEMENT,
     COMMENT,
+    TEXT,
     UNKNOWN,
     DECLARATION
+  };
+  
+  enum NodeParseFlag {
+    OPEN_TAG,
+    CLOSE_TAG,
+    SELF_CLOSE_TAG,
+    UNDEFINE
   };
 
   /*
@@ -109,12 +117,35 @@ class XmlNode {
   void SetAttribute(const std::string & name, const std::string & value);
   std::string GetAttribute(const std::string & name) const;
   std::vector<std::pair<std::string, std::string> > GetAttributes() const;
+  
+  /*
+    Declaration attributes
+    Declaration has two attributes version and encoding
+    These setting and getting functions is only available for DECLARATION type
+  */
+  void SetVerstion(const std::string & version);
+  void SetEncoding(const std::string & version);
+  std::string GetVersion() const;
+  std::string GetEncoding() const;
 
   /*
     ToString
     Return a string in Xml format
   */
   std::string ToString(int indent = 0) const;
+  
+  /*
+    Clear - Clear all children node and make itself a default element node
+  */
+  void Clear();
+  
+  /*
+    Read and Load
+    Read - Read a string and generate a node
+    Load - Read a file and generate a node
+  */
+  bool Read(std::string content);
+  bool Load(const std::string filename);
 
   // Get and set
   /*
@@ -154,15 +185,32 @@ class XmlNode {
   void set_text(const std::string & text);
   std::string tag() const;
   void set_tag(const std::string & tag);
+  
+  /*
+    XmlSpecial characters encoding and decoding
+  */
+  static std::string XmlSpecialCharEncode(std::string origin);
+  static std::string XmlSpecialCharDecode(std::string origin);
 
  private:
   /*
-    ToString as type
+    ToString by type
   */
   std::string ToStringAsElement(int indent) const;
   std::string ToStringAsComment(int indent) const;
   std::string ToStringAsDeclaration(int indent) const;
   std::string ToStringAsUnknown(int indent) const;
+  std::string ToStringAsText(int indent) const;
+  
+  /*
+    Parser functions
+  */
+  XmlNode * ParseNext(const std::string & content, // Content to Parse
+                      int & start,                   // Parse index
+                      NodeParseFlag & flag,        // flag of result
+                      std::string & id);           // id for element parsing
+                      
+  void EatWhiteSpace(const std::string & content, int & start);
 
   // Type of this node
   NodeType type_;
@@ -193,6 +241,7 @@ class XmlNode {
   // string. Thus, a map in map<string, string> is used to
   // present attributes.
   std::map<std::string, std::string> attributes_;
+  
 };
 
 }
