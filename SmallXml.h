@@ -67,6 +67,7 @@ class XmlNode {
     Copy Constructor
   */
   XmlNode(const XmlNode & node);
+  XmlNode & operator=(const XmlNode & node);
   
   /*
     Destructor
@@ -115,6 +116,8 @@ class XmlNode {
     std::string value = node.GetAttribute(name);
   */
   void SetAttribute(const std::string & name, const std::string & value);
+  void SetAttributes(const std::string & content);
+  void RemoveAttribute(const std::string & name);
   std::string GetAttribute(const std::string & name) const;
   std::vector<std::pair<std::string, std::string> > GetAttributes() const;
   
@@ -123,8 +126,8 @@ class XmlNode {
     Declaration has two attributes version and encoding
     These setting and getting functions is only available for DECLARATION type
   */
-  void SetVerstion(const std::string & version);
-  void SetEncoding(const std::string & version);
+  void SetVersion(const std::string & version);
+  void SetEncoding(const std::string & encoding);
   std::string GetVersion() const;
   std::string GetEncoding() const;
 

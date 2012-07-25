@@ -53,12 +53,13 @@ std::string replaceAll(std::string origin, // the Origin string
     return origin;
     
   int i = 0;
-  while (i < origin.size() - from_size) {
+  // It's funny. I should cast unsigned int to int
+  while (i < static_cast<int>(origin.size()) - from_size) {
     if (0 == origin.compare(i, from_size, from)) {
       origin.replace(i, from_size, to);
       i += to_size;
     } else {
-      ++ i;
+      ++i;
     }
   }
   
@@ -104,8 +105,8 @@ XmlNode::XmlNode(NodeType type)
       tag_ = "DEFAULT";
       break;
     case DECLARATION:
-      SetAttribute("version", "1.1");
-      SetAttribute("encoding", "UTF-8");
+      SetVersion("1.1");
+      SetEncoding("UTF-8");
       break;
     case COMMENT:
       break;
@@ -161,6 +162,29 @@ XmlNode::XmlNode(const XmlNode & node)
     PushChild(*scan);
     scan = scan->next_;
   }
+}
+
+XmlNode & XmlNode::operator=(const XmlNode & node) {
+  if (this == &node)
+    return *this;
+  
+  type_ = node.type_;
+  parent_ = node.parent_;
+  prev_ = node.prev_;
+  next_ = node.next_;
+  first_child_ = 0;
+  last_child_ = 0;
+  text_ = node.text_;
+  tag_ = node.tag_;
+  attributes_ = node.attributes_;
+  
+  XmlNode * scan = node.first_child_;
+  while (NULL != scan) {
+    PushChild(*scan);
+    scan = scan->next_;
+  }
+  
+  return *this;
 }
 
 /*
@@ -289,11 +313,54 @@ bool XmlNode::HasChild() const {
 
 void XmlNode::SetAttribute(const std::string & name,
                            const std::string & value) {
+  
   // Only Element & Declaration have children
   if (ELEMENT != type_ && DECLARATION != type_)
     return;
-                           
   attributes_[XmlSpecialCharEncode(name)] = XmlSpecialCharEncode(value);
+}
+
+void XmlNode::SetAttributes(const std::string & content) {
+  if (ELEMENT != type_ && DECLARATION != type_)
+    return;
+    
+  int index = 0;
+  //printf("index = %d\n", index);
+  int content_size = content.size();
+  while (index < content_size) {
+    EatWhiteSpace(content, index);
+    // parse name
+    std::string name = "";
+    while (index < content_size &&
+           '=' != content[index]) {
+      name += content[index++];
+    }
+    
+    // attribute without value
+    if (!(++index < content_size &&
+          ('\"' == content[index] || '\'' == content[index])))
+      continue;
+      
+    ++index;
+    std::string value = "";
+    while (index < content_size &&
+           '\"' != content[index] &&
+           '\'' != content[index]) {
+      value += content[index++];       
+    }
+
+    if (!name.empty() && !value.empty())
+      SetAttribute(name, value);
+    
+    ++index;
+  }
+}
+
+void XmlNode::RemoveAttribute(const std::string & name) {
+  if (ELEMENT != type_)
+    return;
+    
+  attributes_.erase(name);
 }
 
 std::string XmlNode::GetAttribute(const std::string & name) const {
@@ -304,8 +371,9 @@ std::string XmlNode::GetAttribute(const std::string & name) const {
   std::string encoded_name = XmlSpecialCharEncode(name);
   
   std::map<std::string, std::string>::const_iterator it = attributes_.find(encoded_name);
-  if (it != attributes_.end())
+  if (it != attributes_.end()) {
     return XmlSpecialCharDecode(it->second);
+  }
   
   return "";
 }
@@ -315,6 +383,34 @@ std::vector<std::pair<std::string, std::string> > XmlNode::GetAttributes() const
   std::vector<std::pair<std::string, std::string> > result;
   
   return result;
+}
+
+void XmlNode::SetVersion(const std::string & version) {
+  if (DECLARATION != type_)
+    return;
+    
+  SetAttribute("version", version);
+}
+
+void XmlNode::SetEncoding(const std::string & encoding) {
+  if (DECLARATION != type_)
+    return;
+    
+  SetAttribute("encoding", encoding);
+}
+
+std::string XmlNode::GetVersion() const {
+  if (DECLARATION != type_)
+    return "";
+    
+  return GetAttribute("version");
+}
+
+std::string XmlNode::GetEncoding() const {
+  if (DECLARATION != type_)
+    return "";
+    
+  return GetAttribute("Encoding");
 }
 
 /*
@@ -376,18 +472,84 @@ bool XmlNode::Read(std::string content) {
   
   // Init this node as empty text;
   Clear();
+  
+  if (UNDEFINE == flag)
+    return false;
+  
   // Copy the first parsed node to this.
   if (NULL != tmp_node_ptr) {
-    type_ = tmp_node_ptr->type_;
-    text_ = tmp_node_ptr->text_;
-    tag_ = tmp_node_ptr->tag_;
-    
+    *this = *tmp_node_ptr;
     delete tmp_node_ptr;
     tmp_node_ptr = NULL;
   }
   
   if (SELF_CLOSE_TAG == flag) { // It doesn't has children
     return true;
+  }
+  
+  if (OPEN_TAG == flag){
+    parse_stack.push(this);
+  }
+  
+  //printf("stack size = %lu, index = %d, content size = %lu\n", parse_stack.size(), index, content.size());
+  
+  while (0 != parse_stack.size() && index < content.size()) {
+    tmp_node_ptr = NULL;
+    flag = UNDEFINE;
+    tmp_node_ptr = ParseNext(content, index, flag, id_str);
+    
+    /*
+    if (NULL != tmp_node_ptr) {
+      printf("**\nFind Element:\n%s\n", tmp_node_ptr->ToString(-1).c_str());
+      printf("Parse_stack.size() = %lu", parse_stack.size());
+    }
+    */
+    
+    // A self closed tag, a child of top element
+    if (SELF_CLOSE_TAG == flag) {
+      XmlNode * node_ptr = parse_stack.top();
+      if (NULL != node_ptr) {
+        node_ptr->PushChild(*tmp_node_ptr);
+        delete tmp_node_ptr;
+        tmp_node_ptr = NULL;
+        continue;
+      } else {
+        delete tmp_node_ptr;
+        return false;
+      }
+    }
+    
+    // A Open tag
+    if (OPEN_TAG == flag) {
+      parse_stack.push(tmp_node_ptr);
+      continue;
+    }
+    
+    // Close tag of an element
+    if (CLOSE_TAG == flag) {
+      XmlNode * node_ptr = parse_stack.top();
+      if (id_str != node_ptr->tag_) {
+        // Clean the stack, release memory
+        while (this != parse_stack.top()) {
+          XmlNode * ptr = parse_stack.top();
+          parse_stack.pop();
+          delete ptr;
+        }
+        return false;
+      }
+      
+      if (node_ptr == this) {
+        return true;
+      }
+      
+      // id matchs, it is not this pointer
+      parse_stack.pop();
+      if (NULL != parse_stack.top()) {
+        parse_stack.top()->PushChild(*node_ptr);
+        delete node_ptr;
+      }
+    }
+
   }
   
   return true;
@@ -472,7 +634,7 @@ void XmlNode::set_tag(const std::string & tag) {
   if (ELEMENT != type_)
     return;
     
-  tag_ = trim(tag);
+  tag_ = XmlSpecialCharEncode(trim(tag));
 }
 
 
@@ -490,7 +652,6 @@ std::string XmlNode::XmlSpecialCharEncode(std::string str) {
 
 // Xml string to General string
 std::string XmlNode::XmlSpecialCharDecode(std::string str) {
-
   str = replaceAll(str, "&lt;"  , "<");
   str = replaceAll(str, "&gt;"  , ">");
   str = replaceAll(str, "&apos;", "\'");
@@ -504,6 +665,8 @@ std::string XmlNode::XmlSpecialCharDecode(std::string str) {
 // Private member functions
 
 std::string XmlNode::ToStringAsElement(int indent) const {
+  std::string new_line_sep = (-1 == indent) ? "" : "\n";
+
   // Init result with open tag
   std::string result = showIndent(indent) + "<" + tag_;
   
@@ -514,7 +677,7 @@ std::string XmlNode::ToStringAsElement(int indent) const {
     result += " " + it->first + "=\"" + it->second + "\"";
   }
   
-  result += ">\n";
+  result += ">" + new_line_sep;
   
   /*
    In the latest design, I push the text as a child of element,
@@ -526,33 +689,40 @@ std::string XmlNode::ToStringAsElement(int indent) const {
   
   // Append children
   XmlNode * p_child;
+  int child_indent = (-1 == indent) ? -1 : indent + 1;
   for (p_child = this->FirstChild(); 
        NULL != p_child; 
        p_child = p_child->NextSibling()) {
-    result += p_child->ToString(indent + 1);
+    result += p_child->ToString(child_indent);
   }
 
   // Append close tag
-  result += showIndent(indent) + "</" + tag_ + ">\n";
+  result += showIndent(indent) + "</" + tag_ + ">" + new_line_sep;
 
   return result;
 }
 
 std::string XmlNode::ToStringAsComment(int indent) const {
+  std::string new_line_sep = (-1 == indent) ? "" : "\n";
 
   // In XML 1.1, '--' is not allowed in text.
   // While, it should be check when init a comment.
-  std::string result = showIndent(indent) + "<!-- " + text_ + " -->\n";
+  std::string result = showIndent(indent) + "<!-- " + text_ + " -->" + new_line_sep;
   
   return result;
 }
 
 std::string XmlNode::ToStringAsDeclaration(int indent) const {
+  std::string new_line_sep = (-1 == indent) ? "" : "\n";
+
   // About indent, I am still thinking Should declaration start 
   // with indent or not.
+  std::string version_str = GetAttribute("version");
+  version_str = version_str.empty() ? "" : " version=\"" + version_str + "\"";
+  std::string encoding_str = GetAttribute("encoding");
+  encoding_str = encoding_str.empty() ? "" : " encoding=\"" + encoding_str + "\"";
   
-  std::string result = "<?xml version=\"" + attributes_.at("version") + 
-                       "\" encoding=\"" + attributes_.at("encoding") + "\"?>\n";
+  std::string result = "<?xml" + version_str + encoding_str + "?>" + new_line_sep;
   return result;
 }
 
@@ -564,8 +734,10 @@ std::string XmlNode::ToStringAsUnknown(int indent) const {
 }
 
 std::string XmlNode::ToStringAsText(int indent) const {
+  std::string new_line_sep = (-1 == indent) ? "" : "\n";
+
   std::string result = (text_.empty()) ? "" : showIndent(indent) + text_;
-  result += "\n";
+  result += new_line_sep;
   
   return result;
 }
@@ -579,6 +751,8 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   if (0 > start || start >= content.size()) {
     return NULL;
   }
+  
+  //printf("--\n%s--\n", content.c_str());
   
   XmlNode * result_node = NULL;
   
@@ -596,7 +770,7 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   }
   
   // Comment
-  if (start + 4 < content.size() && 
+  if (start + 3 < content.size() && 
       '!' == content[start + 1] &&
       '-' == content[start + 2] &&
       '-' == content[start + 3]) {
@@ -619,31 +793,62 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   }
   
   // Declaration
-  if (start + 1 < content.size() && 
-      '?' == content[++start]) {
+  if (start + 4 < content.size() && 
+      '?' == content[start + 1]  &&
+      'x' == content[start + 2]  &&
+      'm' == content[start + 3]  &&
+      'l' == content[start + 4]) {
     std::string text = "";
-    ++start;
-    do {
-      text += content[start++];
-      //printf("ATTRIBUTE STR = %s\n", text.c_str());
-    } while (start + 1 < content.size() && 
-             !('?' == content[start] && '>' == content[start + 1]));
+    start += 4;
+
+    while (++start < content.size() && 
+           !('?' == content[start] && '>' == content[start + 1])) {
+      text += content[start]; 
+    }
     
-    if (start + 1 >= content.size())
+    if (start >= content.size())
       return NULL;
     
-    //TODO parse attribute
-    printf("ATTRIBUTE STR = %s\n", text.c_str());
     result_node = new XmlNode(DECLARATION);
+    result_node->SetAttributes(text);
     flag = SELF_CLOSE_TAG;
     id = "";
     start += 2;
     return result_node; 
   }
   
-  // 
+  // ELEMENT
+  // Close tag
+  if (start + 1 < content.size() &&
+      '/' == content[start + 1]) {
+    //printf("Find Close Tag\n");
+    ++start;
+    id = "";
+    while (++start < content.size() &&
+           '>' != content[start]) {
+      id += content[start]; 
+    }
+    if (start < content.size() && !id.empty())
+      flag = CLOSE_TAG;
+    ++start;
+    id = XmlSpecialCharEncode(trim(id));
+    return result_node;
+  }
   
-  return NULL;
+  // OPEN TAG
+  //printf("Find Open Tag\n");
+  while (++start < content.size() &&
+         '>' != content[start]) {
+    id += content[start];
+  }
+  if (start < content.size() && !id.empty()) {
+    result_node = new XmlNode(ELEMENT, id);
+    flag = OPEN_TAG;
+    id = "";
+  }
+  ++start;
+  
+  return result_node;
 }
 
 void XmlNode::EatWhiteSpace(const std::string & content, int & start) {
@@ -685,6 +890,7 @@ void test_ToString() {
   cout << "Element\n";
   XmlNode elem2(XmlNode::ELEMENT, "  TagName");
   elem2.set_text("   Some Content ");
+  elem2.SetAttribute("hello", "world");
   cout << elem2.ToString();
   
   cout << "Comment\n";
@@ -755,25 +961,20 @@ void test_parser() {
   cout << result_dec_node.ToString(1);
   
   
-  return;
-
-  cout << "\n----- Test Parser -----\n";
-  cout << "Content\n";
-
-  XmlNode elem0(XmlNode::ELEMENT, "Parent");
-  elem0.SetAttribute("href", "some url");
-  XmlNode elem1(XmlNode::ELEMENT, "Child1");
-  XmlNode elem2(XmlNode::ELEMENT, "Child2");
-  XmlNode elem3(XmlNode::ELEMENT, "Child3");
-  XmlNode elem4(XmlNode::ELEMENT, "Child4");
-  elem2.set_text("Content of child2");
-  XmlNode * p_new_elem1 = elem0.PushChild(elem1);
-  XmlNode * p_new_elem2 = elem0.PushChild(elem2);
-  elem0.InsertChildBefore(elem3, p_new_elem1);
-  elem0.InsertChildAfter(elem4, p_new_elem1);
-  cout << elem0.ToString(1);
+  cout << "\nELEMENT\n";
+  cout << "Origin\n";
+  XmlNode ele_node1(XmlNode::ELEMENT, "Test");
+  XmlNode ele_node2(XmlNode::COMMENT, "Some Comment");
+  XmlNode ele_node3(XmlNode::ELEMENT, "Child");
+  ele_node1.PushChild(ele_node2);
+  ele_node1.PushChild(ele_node3);
+  cout << ele_node1.ToString(-1) << "\n";
+  cout << "Parsed\n";
+  XmlNode result_ele_node;
+  result_ele_node.Read(ele_node1.ToString());
+  cout << result_ele_node.ToString(-1) << "\n";
   
-  cout << "\nStart Parsing\n";
+  return;
 }
 
 int main(int argc, char ** argv) {
