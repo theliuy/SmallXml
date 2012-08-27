@@ -6,8 +6,8 @@ Author: Yang Liu
         theliuy.com
 */
 
-#ifndef SMALL_XML_H
-#define SMALL_XML_H
+#ifndef SMALLXML_SMALLXML_H
+#define SMALLXML_SMALLXML_H
 
 #include <string>
 #include <map>
@@ -21,18 +21,18 @@ namespace SmallXml {
   Attributes is not included, since attributes 
   are not in the DOM tree.
   Nodes have sibling and chilren. This class contains
-  several functions to traverse DOM tree, and IO
-  functions.
+  several functions to traverse DOM tree.
 */
 
 class XmlNode {
  public:
   enum NodeType {
-    ELEMENT,
-    COMMENT,
-    TEXT,
-    UNKNOWN,
-    DECLARATION
+    ELEMENT,      // Element
+    COMMENT,      // Comment
+    TEXT,         // Text
+    UNKNOWN,      // Not Used actually...
+    DECLARATION,  // Declaration
+    DOCUMENT      // Super node
   };
   
   enum NodeParseFlag {
@@ -46,18 +46,30 @@ class XmlNode {
     Constructors of XmlNode
     -- XML Element:
       // Construct with default tag - <DEFAULT>
-      XmlNode(ELEMENT); 
+      XmlNode();        // I am thinking to remove it
+      XmlNode(XmlNode::ELEMENT); 
       // Construct with given tag
-      XmlNode(ELEMENT, tag);
+      XmlNode(XmlNode::ELEMENT, tag);
     -- XML Comment
       // Construct with empty comment
-      XmlNode(COMMENT);
+      XmlNode(XmlNode::COMMENT);
       // Construct with content
-      XmlNode(COMMENT, content);
+      XmlNode(XmlNode::COMMENT, content);
     -- XML DECLARATION
-      // Construct a declaration
-      XmlNode(DECLARATION);
-    Default to create an element
+      // Construct a declaration, version="1.1" encoding="UTF-8"
+      XmlNode(XmlNode::DECLARATION);
+    -- TEXT
+      // Construct an empty text
+      XmlNode(XmlNode::TEXT);
+      // Construct with a given text
+      XmlNode(XmlNode::TEXT, text);
+    -- DOCUMENT
+      // Construct an document
+      XmlNode(XmlNode::DOCUMENT);
+      
+    NOTE:
+      When initialized with given string, it calls set_xxx functions.
+      Thus, the value will be encoded with XML special characters.
   */
   XmlNode();
   XmlNode(NodeType type);
@@ -65,25 +77,33 @@ class XmlNode {
   
   /*
     Copy Constructor
+    They make a real copy
+    
+    // Copy a node
+    XmlNode to_node(from_node);
+    // Assign value
+    XmlNode to_node = from_node;
   */
   XmlNode(const XmlNode & node);
   XmlNode & operator=(const XmlNode & node);
   
   /*
     Destructor
+    
+    The Destructor will release the node itself, and children.
   */
   ~XmlNode();
 
   // Public member functions
   /*
     Insert children
-    These functions are only available to Element
+    These functions are only available to Element and Document.
     PushChild - Insert a child node at the end of list
     InsertChildBefore - Insert a child before a target node
     InsertChildAfter - Insert a child after a target node
     
     NOTE:
-    When these functions called, the XmlNode object will be copied.
+    When these functions called, the XmlNode object will be COPIED!
     If insertion successes, a pointer points to the new object in the
     DOM. If failed, they return null pointers. The newly allocated 
     memory will be released when the parent object is destroyed.
@@ -103,17 +123,42 @@ class XmlNode {
   
   /*
     Number of children
+    
+    NumOfChildren() returns the number of children. It is only effective
+    to elements and document. It returns 0, if this object doesn't or is not
+    allowed to have children.
+    HasChild() returns true if and only if the node is element or document,
+    and it has more than one child.
+    
+    // Get number of child
+    int num_children = node.NumOfChildren();
+    // Check if the node has child
+    bool has_child = node.HasChild();
+    
+    NOTE:
+      The number of children is what number of the first layer. It doesn't
+      count recursively.
   */
   int NumOfChildren() const;
   bool HasChild() const;
   
   /*
     Attributes
-    Sample usage
+    Attributes is only available for element, declaration.
+    
     // Add Attribute
     node.SetAttribute(name, value);
+    // Set attribute by a string
+    std::string str = "name=\"value\" name0=\"value0\"";
+    node.SetAttributes(str);
     // Get Attribute
     std::string value = node.GetAttribute(name);
+    // Remove Attribute by name
+    node.RemoveAttribute(name);
+    
+    NOTE:
+      Attributes is managed by a map struct. Thus if more than one values
+      are set to a consistant value, only the last one will be stored.
   */
   void SetAttribute(const std::string & name, const std::string & value);
   void SetAttributes(const std::string & content);
@@ -134,6 +179,9 @@ class XmlNode {
   /*
     ToString
     Return a string in Xml format
+    
+    NOTE:
+      If you don't want indent, please set it to -1;
   */
   std::string ToString(int indent = 0) const;
   
@@ -145,10 +193,19 @@ class XmlNode {
   /*
     Read and Load
     Read - Read a string and generate a node
-    Load - Read a file and generate a node
+    
+    // Read a node from a string
+    node.Read(str);
+    // Read a node from a string with the start
+    // start will change into the index of last read char.
+    node.Read(str, start);
+    
+    NOTE:
+      Read functions will return a bool value, to indicate it success or is
+      failed. If you want to track where cause the failure, check the index.
   */
-  bool Read(std::string content);
-  bool Load(const std::string filename);
+  bool Read(const std::string & content);
+  bool Read(const std::string & content, int & index);
 
   // Get and set
   /*
@@ -162,20 +219,46 @@ class XmlNode {
   /*
     Sibling
     Get - Return prev or next silbing.
+    
+    // Get Previous sibling
+    XmlNode * prev = node.PreviousSibling();
+    // Get Next Sibling
+    XmlNode * next = node.NextSibling();
+    // Get Previous sibling element by tag
+    XmlNode * prev_elem = node.PreviousElement(tag);
+    // Get Next sibling element by tag
+    XmlNode * next_elem = node.NextElement(tag);
   */
   XmlNode * PreviousSibling() const;
   XmlNode * PreviousSibling();
   XmlNode * NextSibling() const;
   XmlNode * NextSibling();
-
+  XmlNode * PreviousElement(const std::string & tag) const;
+  XmlNode * NextElement(const std::string & tag) const;
+  
   /*
     Children
     Get - Return first or last child
+    
+    // Get First Child
+    XmlNode * first_child = node.FirstChild();
+    // Get Last Child
+    XmlNode * last_child = node.LastChild();
   */
   XmlNode * FirstChild() const;
   XmlNode * FirstChild();
   XmlNode * LastChild() const;
   XmlNode * LastChild();
+  
+  /*
+    XPath!
+    
+    TODO
+    
+    It is coming soon!
+  */
+  //XmlNode * XPath(const std::string & path) const;
+  //XmlNdoe * XPath(const std::string & path);
 
   /*
     Value
@@ -204,6 +287,7 @@ class XmlNode {
   std::string ToStringAsDeclaration(int indent) const;
   std::string ToStringAsUnknown(int indent) const;
   std::string ToStringAsText(int indent) const;
+  std::string ToStringAsDOCUMENT(int indent) const;
   
   /*
     Parser functions
@@ -214,6 +298,8 @@ class XmlNode {
                       std::string & id);           // id for element parsing
                       
   void EatWhiteSpace(const std::string & content, int & start);
+  bool ReadNode(std::string content, int & index);
+  bool ReadDocument(std::string content, int & index);
 
   // Type of this node
   NodeType type_;
@@ -230,10 +316,11 @@ class XmlNode {
   XmlNode * first_child_;
   XmlNode * last_child_;
 
+
+  // TODO
+  // I will explain these member variables soon!
+  
   // text_ has different meaning to different type.
-  // For Element, text_ is the plain text
-  // For Comment, text_ is the comment.
-  // For Declaration and Unkown, it is empty.
   std::string text_;
   // tag_ is only used by element
   // it is the name of tag

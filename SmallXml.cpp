@@ -3,8 +3,6 @@
 #include <functional>
 #include <stack>
 
-#include <cstdio>
-
 namespace {
 
 std::string showIndent(int indent) {
@@ -66,6 +64,15 @@ std::string replaceAll(std::string origin, // the Origin string
   return origin;                       
 }
 
+bool isWhiteSpace(const char c) {
+  return (' '  == c || 
+          '\n' == c ||
+          '\r' == c || 
+          '\t' == c || 
+          '\v' == c ||
+          '\f' == c);
+}
+
 }
 
 namespace SmallXml {
@@ -114,6 +121,8 @@ XmlNode::XmlNode(NodeType type)
       break;
     case TEXT:
       break;
+    case DOCUMENT:
+      break;
   }
 }
 
@@ -142,6 +151,8 @@ XmlNode::XmlNode(NodeType type, const std::string & value)
       break;
     case UNKNOWN:
       set_text(value);
+      break;
+    case DOCUMENT:
       break;
   }
 }
@@ -212,7 +223,10 @@ XmlNode::~XmlNode() {
 */
 XmlNode * XmlNode::PushChild(const XmlNode & node) {
   // Only elements have children
-  if (ELEMENT != type_)
+  if (ELEMENT != type_ && DOCUMENT != type_)
+    return NULL;
+    
+  if (DOCUMENT == node.type_)
     return NULL;
     
   // Make a copy
@@ -240,9 +254,11 @@ XmlNode * XmlNode::InsertChildBefore(const XmlNode & node, XmlNode * before_this
     return NULL;
     
   // Only elements have children
-  if (ELEMENT != type_)
+  if (ELEMENT != type_ && DOCUMENT != type_)
     return NULL;
     
+  if (DOCUMENT == node.type_)
+    return NULL;
 
   // make a copy
   XmlNode * p_tmp_node = new XmlNode(node);
@@ -267,8 +283,11 @@ XmlNode * XmlNode::InsertChildAfter(const XmlNode & child, XmlNode * after_this)
   if (NULL == after_this || this != after_this->parent_)
     return 0;
     
-  if (ELEMENT != type_)
+  if (ELEMENT != type_ && DOCUMENT != type_)
     return 0;
+    
+  if (DOCUMENT == child.type_)
+    return NULL;
     
   // Copy child
   XmlNode * p_tmp_node = new XmlNode(child);
@@ -294,7 +313,7 @@ XmlNode * XmlNode::InsertChildAfter(const XmlNode & child, XmlNode * after_this)
 int XmlNode::NumOfChildren() const {
   // Only Element has children
   // Return 0 if type_ is not ELEMENT
-  if (ELEMENT != type_)
+  if (ELEMENT != type_ || DOCUMENT != type_)
     return 0;
 
   int num = 0;
@@ -325,7 +344,7 @@ void XmlNode::SetAttributes(const std::string & content) {
     return;
     
   int index = 0;
-  //printf("index = %d\n", index);
+  
   int content_size = content.size();
   while (index < content_size) {
     EatWhiteSpace(content, index);
@@ -379,8 +398,13 @@ std::string XmlNode::GetAttribute(const std::string & name) const {
 }
 
 std::vector<std::pair<std::string, std::string> > XmlNode::GetAttributes() const {
-  // TODO
+
   std::vector<std::pair<std::string, std::string> > result;
+  
+  std::map<std::string, std::string>::const_iterator it = attributes_.begin();
+  for (; it != attributes_.end(); ++it) {
+    result.push_back(std::pair<std::string, std::string>(it->first, it->second));
+  }
   
   return result;
 }
@@ -430,6 +454,8 @@ std::string XmlNode::ToString(int indent) const {
       return ToStringAsText(indent);
     case UNKNOWN:
       return ToStringAsUnknown(indent);
+    case DOCUMENT:
+      return ToStringAsDOCUMENT(indent);
   }
 
   return "";
@@ -459,105 +485,16 @@ void XmlNode::Clear() {
   last_child_ = NULL;
 }
 
-bool XmlNode::Read(std::string content) {
-  
-  std::stack<XmlNode *> parse_stack;
-  
-  NodeParseFlag flag = UNDEFINE;
-  std::string id_str = "";
-  int content_size = content.size();
+bool XmlNode::Read(const std::string & content) {
   int index = 0;
-  
-  XmlNode * tmp_node_ptr = ParseNext(content, index, flag, id_str);
-  
-  // Init this node as empty text;
-  Clear();
-  
-  if (UNDEFINE == flag)
-    return false;
-  
-  // Copy the first parsed node to this.
-  if (NULL != tmp_node_ptr) {
-    *this = *tmp_node_ptr;
-    delete tmp_node_ptr;
-    tmp_node_ptr = NULL;
-  }
-  
-  if (SELF_CLOSE_TAG == flag) { // It doesn't has children
-    return true;
-  }
-  
-  if (OPEN_TAG == flag){
-    parse_stack.push(this);
-  }
-  
-  //printf("stack size = %lu, index = %d, content size = %lu\n", parse_stack.size(), index, content.size());
-  
-  while (0 != parse_stack.size() && index < content.size()) {
-    tmp_node_ptr = NULL;
-    flag = UNDEFINE;
-    tmp_node_ptr = ParseNext(content, index, flag, id_str);
-    
-    /*
-    if (NULL != tmp_node_ptr) {
-      printf("**\nFind Element:\n%s\n", tmp_node_ptr->ToString(-1).c_str());
-      printf("Parse_stack.size() = %lu", parse_stack.size());
-    }
-    */
-    
-    // A self closed tag, a child of top element
-    if (SELF_CLOSE_TAG == flag) {
-      XmlNode * node_ptr = parse_stack.top();
-      if (NULL != node_ptr) {
-        node_ptr->PushChild(*tmp_node_ptr);
-        delete tmp_node_ptr;
-        tmp_node_ptr = NULL;
-        continue;
-      } else {
-        delete tmp_node_ptr;
-        return false;
-      }
-    }
-    
-    // A Open tag
-    if (OPEN_TAG == flag) {
-      parse_stack.push(tmp_node_ptr);
-      continue;
-    }
-    
-    // Close tag of an element
-    if (CLOSE_TAG == flag) {
-      XmlNode * node_ptr = parse_stack.top();
-      if (id_str != node_ptr->tag_) {
-        // Clean the stack, release memory
-        while (this != parse_stack.top()) {
-          XmlNode * ptr = parse_stack.top();
-          parse_stack.pop();
-          delete ptr;
-        }
-        return false;
-      }
-      
-      if (node_ptr == this) {
-        return true;
-      }
-      
-      // id matchs, it is not this pointer
-      parse_stack.pop();
-      if (NULL != parse_stack.top()) {
-        parse_stack.top()->PushChild(*node_ptr);
-        delete node_ptr;
-      }
-    }
-
-  }
-  
-  return true;
+  return Read(content, index);
 }
 
-bool XmlNode::Load(const std::string filename) {
-  // TODO
-  return true;  
+bool XmlNode::Read(const std::string & content, int & index) {
+  if (DOCUMENT == type_)
+    return ReadDocument(content, index);
+  else
+    return ReadNode(content, index);
 }
 
 int XmlNode::type() const {
@@ -591,6 +528,34 @@ XmlNode * XmlNode::NextSibling() const {
 
 XmlNode * XmlNode::NextSibling() {
   return next_;
+}
+
+XmlNode * XmlNode::PreviousElement(const std::string & tag) const {
+  XmlNode * scan = prev_;
+  while(NULL != scan) {
+    if (ELEMENT == scan->type_ && 
+        tag_ == tag) {
+      return scan;    
+    }
+    
+    scan = scan->prev_;
+  }
+  
+  return NULL;
+}
+
+XmlNode * XmlNode::NextElement(const std::string & tag) const {
+  XmlNode * scan = next_;
+  while (NULL != scan) {
+    if (ELEMENT == scan->type_ &&
+        scan->tag_ == tag) {
+      return scan;    
+    }
+    
+    scan = scan->next_;
+  }
+  
+  return NULL;
 }
 
 XmlNode * XmlNode::FirstChild() const {
@@ -742,6 +707,18 @@ std::string XmlNode::ToStringAsText(int indent) const {
   return result;
 }
 
+std::string XmlNode::ToStringAsDOCUMENT(int indent) const {
+  std::string result = "";
+  
+  XmlNode * scan = first_child_;
+  while (NULL != scan) {
+    result += scan->ToString(indent);
+    scan = scan->next_;
+  }
+  
+  return result;
+}
+
 XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
                              int & start,                   // Parse index
                              NodeParseFlag & flag,        // flag of result
@@ -751,8 +728,6 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   if (0 > start || start >= content.size()) {
     return NULL;
   }
-  
-  //printf("--\n%s--\n", content.c_str());
   
   XmlNode * result_node = NULL;
   
@@ -813,7 +788,7 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
     result_node->SetAttributes(text);
     flag = SELF_CLOSE_TAG;
     id = "";
-    start += 2;
+    start += 3;
     return result_node; 
   }
   
@@ -821,7 +796,6 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   // Close tag
   if (start + 1 < content.size() &&
       '/' == content[start + 1]) {
-    //printf("Find Close Tag\n");
     ++start;
     id = "";
     while (++start < content.size() &&
@@ -830,19 +804,31 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
     }
     if (start < content.size() && !id.empty())
       flag = CLOSE_TAG;
-    ++start;
+    start += 1;
     id = XmlSpecialCharEncode(trim(id));
     return result_node;
   }
   
   // OPEN TAG
-  //printf("Find Open Tag\n");
-  while (++start < content.size() &&
+  std::string tag_str = "";
+  // Parse Tag;
+  while (++start < content.size()      &&
+         !isWhiteSpace(content[start]) &&
          '>' != content[start]) {
-    id += content[start];
+    tag_str += content[start];
   }
-  if (start < content.size() && !id.empty()) {
-    result_node = new XmlNode(ELEMENT, id);
+  
+  // Parse Attribute
+  std::string attribute_str = "";
+  if ('>' != content[start]) {
+    while (++start < content.size() &&
+           '>' != content[start]) {
+      attribute_str += content[start];       
+    }
+  }
+  if (start < content.size() && !tag_str.empty()) {
+    result_node = new XmlNode(ELEMENT, tag_str);
+    result_node->SetAttributes(attribute_str);
     flag = OPEN_TAG;
     id = "";
   }
@@ -851,18 +837,112 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   return result_node;
 }
 
+bool XmlNode::ReadNode(std::string content, int & index) {
+    
+  std::stack<XmlNode *> parse_stack;
+  
+  NodeParseFlag flag = UNDEFINE;
+  std::string id_str = "";
+  int content_size = content.size();
+  
+  XmlNode * tmp_node_ptr = ParseNext(content, index, flag, id_str);
+  
+  // Init this node as empty text;
+  Clear();
+  
+  if (UNDEFINE == flag)
+    return false;
+  
+  // Copy the first parsed node to this.
+  if (NULL != tmp_node_ptr) {
+    *this = *tmp_node_ptr;
+    delete tmp_node_ptr;
+    tmp_node_ptr = NULL;
+  }
+  
+  if (SELF_CLOSE_TAG == flag) { // It doesn't has children
+    return true;
+  }
+  
+  if (OPEN_TAG == flag){
+    parse_stack.push(this);
+  }
+  
+  while (0 != parse_stack.size() && index < content.size()) {
+    tmp_node_ptr = NULL;
+    flag = UNDEFINE;
+    tmp_node_ptr = ParseNext(content, index, flag, id_str);
+    
+    // A self closed tag, a child of top element
+    if (SELF_CLOSE_TAG == flag) {
+      XmlNode * node_ptr = parse_stack.top();
+      if (NULL != node_ptr) {
+        node_ptr->PushChild(*tmp_node_ptr);
+        delete tmp_node_ptr;
+        tmp_node_ptr = NULL;
+        continue;
+      } else {
+        delete tmp_node_ptr;
+        return false;
+      }
+    }
+    
+    // A Open tag
+    if (OPEN_TAG == flag) {
+      parse_stack.push(tmp_node_ptr);
+      continue;
+    }
+    
+    // Close tag of an element
+    if (CLOSE_TAG == flag) {
+      XmlNode * node_ptr = parse_stack.top();
+      if (id_str != node_ptr->tag_) {
+        // Clean the stack, release memory
+        while (this != parse_stack.top()) {
+          XmlNode * ptr = parse_stack.top();
+          parse_stack.pop();
+          delete ptr;
+        }
+        return false;
+      }
+      
+      if (node_ptr == this) {
+        return true;
+      }
+      
+      // id matchs, it is not this pointer
+      parse_stack.pop();
+      if (NULL != parse_stack.top()) {
+        parse_stack.top()->PushChild(*node_ptr);
+        delete node_ptr;
+      }
+    }
+
+  }
+  
+  return true;
+}
+
+bool XmlNode::ReadDocument(std::string content, int & index) {
+  int content_size = content.size();
+  
+  while (index < content_size) {
+    XmlNode tmp_node;
+    if (tmp_node.Read(content, index)) {
+      PushChild(tmp_node);
+    }
+  }
+  
+  return true;
+}
+
 void XmlNode::EatWhiteSpace(const std::string & content, int & start) {
   if (0 > start)
     start = 0;
 
   while (start < content.size()) {
    char c = content[start];
-   if (' '  == c || 
-       '\n' == c ||
-       '\r' == c || 
-       '\t' == c || 
-       '\v' == c ||
-       '\f' == c) {
+   if (isWhiteSpace(c)) {
       ++start;  
     }
     else {
@@ -881,6 +961,28 @@ void XmlNode::EatWhiteSpace(const std::string & content, int & start) {
 using namespace std;
 using namespace SmallXml;
 
+// Test ToString functions
+void test_ToString();
+// Test Insertion
+void test_inserts();
+// Test Parser and Read
+void test_parser();
+// Test Find and XPath
+void test_find();
+
+
+int main(int argc, char ** argv) {
+  test_ToString();
+  
+  test_inserts();
+  
+  test_parser();
+  
+  test_find();
+
+  return 0;
+}
+
 void test_ToString() {
   cout << "\n----- Test ToString()s -----\n";
   cout << "Declaration\n";
@@ -891,6 +993,7 @@ void test_ToString() {
   XmlNode elem2(XmlNode::ELEMENT, "  TagName");
   elem2.set_text("   Some Content ");
   elem2.SetAttribute("hello", "world");
+  elem2.SetAttribute("syracuse", "syracuse ny");
   cout << elem2.ToString();
   
   cout << "Comment\n";
@@ -900,6 +1003,12 @@ void test_ToString() {
   cout << "Unknown\n";
   XmlNode elem4(XmlNode::UNKNOWN, "Some Text");
   cout << elem4.ToString();
+  
+  cout << "\n----- Test GetAttributes() -----\n";
+  vector<pair<string, string> > attributes = elem2.GetAttributes();
+  for (int i = 0; i < attributes.size(); ++i) {
+    cout << attributes[i].first << " => " << attributes[i].second << "\n";
+  }
 }
 
 void test_inserts() {
@@ -933,60 +1042,130 @@ void test_inserts() {
 void test_parser() {
   cout << "\n----- Test Parser -----\n";
   
+  int index = 0;
+  
   cout << "\nText\n";
   cout << "Origin\n";
   XmlNode text_node(XmlNode::TEXT, "hello world");
-  cout << text_node.ToString(1);
+  string text = text_node.ToString(1);
+  cout << text;
   cout << "Parsed\n";
   XmlNode result_text_node;
-  result_text_node.Read(text_node.ToString(0));
+  result_text_node.Read(text, index);
   cout << result_text_node.ToString(1);
+  cout << "size = " << text.size() << "\n";
+  cout << "index = " << index << "\n";
   
   cout << "\nComment\n";
   cout << "Origin\n";
   XmlNode comment_node(XmlNode::COMMENT, "This is a comment");
-  cout << comment_node.ToString(1);
+  string comment = comment_node.ToString(1);
+  cout << comment;
   cout << "Parsed\n";
   XmlNode result_comment_node;
-  result_comment_node.Read(comment_node.ToString(0));
+  index = 0;
+  result_comment_node.Read(comment, index);
   cout << result_comment_node.ToString(1);
+  cout << "size = " << comment.size() << "\n";
+  cout << "index = " << index << "\n";
   
   cout << "\nDeclaration\n";
   cout << "Origin\n";
   XmlNode dec_node(XmlNode::DECLARATION);
-  cout << dec_node.ToString(1);
+  string dec = dec_node.ToString(1);
+  cout << dec;
   cout << "Parsed\n";
   XmlNode result_dec_node;
-  result_dec_node.Read(dec_node.ToString(1));
+  index = 0;
+  result_dec_node.Read(dec, index);
   cout << result_dec_node.ToString(1);
+  cout << "size = " << dec.size() << "\n";
+  cout << "index = " << index << "\n";
   
   
   cout << "\nELEMENT\n";
   cout << "Origin\n";
   XmlNode ele_node1(XmlNode::ELEMENT, "Test");
+  ele_node1.SetAttribute("hello", "world");
+  ele_node1.SetAttribute("New key", "new value");
   XmlNode ele_node2(XmlNode::COMMENT, "Some Comment");
   XmlNode ele_node3(XmlNode::ELEMENT, "Child");
   ele_node1.PushChild(ele_node2);
   ele_node1.PushChild(ele_node3);
+  string ele = ele_node1.ToString(-1);
   cout << ele_node1.ToString(-1) << "\n";
   cout << "Parsed\n";
   XmlNode result_ele_node;
-  result_ele_node.Read(ele_node1.ToString());
+  index = 0;
+  result_ele_node.Read(ele, index);
   cout << result_ele_node.ToString(-1) << "\n";
+  cout << "size = " << ele.size() << "\n";
+  cout << "index = " << index << "\n";
+  
+  cout << "\nAn Document\n";
+  cout << "Origin\n";
+  string conj = dec_node.ToString(-1) + " " + ele_node1.ToString(-1) + " " + comment_node.ToString(-1);
+  cout << conj << "\n";
+  cout << "Parsed\n";
+  XmlNode result_conj_node(XmlNode::DOCUMENT);
+  index = 0;
+  result_conj_node.Read(conj, index);
+  cout << result_conj_node.ToString(-1) << "\n";
+  cout << "next char = '" << conj[index] << "'\n";
+  cout << "size = " << conj.size() << "\n";
+  cout << "index = " << index << "\n";
   
   return;
 }
 
-int main(int argc, char ** argv) {
-  //test_ToString();
+void test_find() {
+  XmlNode node_0_0(XmlNode::ELEMENT, "SU");
   
-  //test_inserts();
+  XmlNode * p_node_1_0 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "LCSmith"));
+  cout << p_node_1_0;
+  p_node_1_0->set_text("The 1st LCSmith");
+  XmlNode * p_node_1_1 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "Whitman"));
+  XmlNode * p_node_1_2 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "Maxwell"));
+  XmlNode * p_node_1_3 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "LCSmith"));
+  p_node_1_3->set_text("Another LCSmith");
   
-  test_parser();
-
-  return 0;
+  cout << "\nA huge node\n";
+  cout << node_0_0.ToString();
+  
+  XmlNode * scan = node_0_0.FirstChild();
+  cout << "\nFirst Child\n";
+  if (NULL == scan)
+    cout << "NULL\n";
+  else
+    cout << scan->ToString();
+    
+  scan = scan->NextSibling();
+  cout << "\nNext Child\n";
+  if (NULL == scan)
+    cout << "NULL\n";
+  else
+    cout << scan->ToString();
+    
+  scan = scan->PreviousSibling();
+  cout << "\nPrevious Child\n";
+  if (NULL == scan)
+    cout << "NULL\n";
+  else
+    cout << scan->ToString();
+    
+  scan = scan->NextElement("LCSmith");
+  cout << "\nNext LCSmith\n";
+  if (NULL == scan)
+    cout << "NULL\n";
+  else
+    cout << scan->ToString();
+    
+  scan = scan->NextElement("LCSmith");
+  cout << "\nNext LCSmith\n";
+  if (NULL == scan)
+    cout << "Not Found\n";
+  else
+    cout << scan->ToString();
 }
-
-
 
 #endif
