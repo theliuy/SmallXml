@@ -13,5 +13,5 @@ This Project is a summer project led by [Dr. Fawcett](http://www.lcs.syr.edu/fac
 Include header file, `SmallXml.h` into your code.
 
 ```cpp
-    #include "SmallXml.h"
+#include "SmallXml.h"
 ```
