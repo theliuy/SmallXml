@@ -11,6 +11,7 @@ In current version, SmallXml doesn't support namespace, CDATA section and encodi
 This Project is a summer project led by [Dr. Fawcett](http://www.lcs.syr.edu/faculty/fawcett/handouts/webpages/FawcettHome.htm). It may also be used in CIS/CSE681 Objected-Oriented Design course.
 ## Usage
 Include header file, `SmallXml.h` into your code.
+
 ```cpp
-#include "SmallXml.h"
+    #include "SmallXml.h"
 ```
