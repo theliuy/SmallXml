@@ -12,7 +12,7 @@ This Project is a summer project led by [Dr. Fawcett](http://www.lcs.syr.edu/fac
 ## Usage
 Include header file, `SmallXml.h` into your code.
 
-```cpp
+```c
 #include "SmallXml.h"
 ```
 
@@ -20,7 +20,7 @@ Include header file, `SmallXml.h` into your code.
 #### Create
 Create a Document
 
-```cpp
+```c
 SmallXml::XmlNode doc_node();
 ```
 
