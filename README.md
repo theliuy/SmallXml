@@ -15,3 +15,16 @@ Include header file, `SmallXml.h` into your code.
 ```cpp
 #include "SmallXml.h"
 ```
+
+### Document
+#### Create
+Create a Document
+
+```cpp
+SmallXml::XmlNode doc_node();
+```
+
+### Element
+### Declaration
+### Comment
+### Text
