@@ -12,19 +12,35 @@ This Project is a summer project led by [Dr. Fawcett](http://www.lcs.syr.edu/fac
 ## Usage
 Include header file, `SmallXml.h` into your code.
 
-```c
+``` cpp
 #include "SmallXml.h"
 ```
 
-### Document
-#### Create
-Create a Document
+## Constructor
 
-```c
-SmallXml::XmlNode doc_node();
-```
+## Destructor
 
-### Element
-### Declaration
-### Comment
-### Text
+## Copy & Assignment
+
+## Type
+
+## Child
+
+## XPath
+
+## Get Sibling
+
+## Attributes
+
+## Attributes of Declaration
+
+## Clear
+
+## Read
+
+## Text & Tag
+
+## Xml Special Character Encoding & Decoding
+
+## Protected Text Processing Functions
+
