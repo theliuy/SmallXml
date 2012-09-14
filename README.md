@@ -18,11 +18,66 @@ Include header file, `SmallXml.h` into your code.
 
 ## Constructor
 
+### Document
+Create a Document.
+
+``` cpp
+SmallXml::XmlNode doc_node(SmallXml::XmlNode::DOCUMENT);
+```
+
+### Element
+Create an Element node with "DEFAULT" tag.
+
+``` cpp
+SmallXml::XmlNode ele_node(SmallXml::XmlNode::ELEMENT);
+```
+Otherwise, create an Element node with a given tag.
+
+``` cpp
+SmallXml::XmlNode ele_node(SamllXml::XmlNode::ELEMENT, "TagName");
+```
+
+### Declaration
+Create a Declaration node with default encoding and version.
+By default, encoding is "UTF-8", and version is "1.1".
+
+``` cpp
+SmallXml::XmlNode dec_node(SmallXml::XmlNode::DECLARATION);
+```
+
+### Comment
+Create a Comment node with empty content.
+
+``` cpp
+SmallXml::XmlNode com_node(SmallXml::XmlNode::COMMENT);
+```
+
+Create a Comment node with given content
+
+``` cpp
+SmallXml::XmlNode com_node(SmallXml::XmlNode::Comment, "Some comment");
+```
+
+### TEXT
+Create a empty Text node.
+
+```cpp
+SmallXml::XmlNode txt_node(SmallXml::XmlNode::TEXT);
+```
+
+Create a Text node with content.
+
+```cpp
+SmallXml::XmlNode txt_node(SmallXml::XmlNode::TEXT, "Some Content");
+```
+
 ## Destructor
 
 ## Copy & Assignment
 
 ## Type
+
+## ToString
 
 ## Child
 
