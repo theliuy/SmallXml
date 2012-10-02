@@ -252,7 +252,8 @@ class XmlNode {
   
   /*
     XPath!
-    
+    Access a Xml node by a string like "parent/child"
+
     TODO
     
     It is coming soon!
