@@ -213,7 +213,6 @@ class XmlNode {
     Get - return a copy of type_.
     Set - Not allowed.
   */
-  void set_type(const enum NodeType type);
   int type() const;
   std::string typeAsString() const;
   
@@ -230,22 +229,12 @@ class XmlNode {
     // Get Next sibling element by tag
     XmlNode * next_elem = node.NextElement(tag);
   */
-  const XmlNode * PreviousSibling() const;
-  XmlNode * PreviousSibling() {
-    return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->PreviousSibling());
-  }
-  const XmlNode * NextSibling() const;
-  XmlNode * NextSibling() {
-    return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->NextSibling());
-  }
-  const XmlNode * PreviousElement(const std::string & tag) const;
-  XmlNode * PreviousElement(const std::string & tag) {
-    return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->PreviousElement(tag));
-  }
-  const XmlNode * NextElement(const std::string & tag) const;
-  XmlNode * NextElement(const std::string & tag) {
-    return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->NextElement(tag));
-  }
+  XmlNode * PreviousSibling() const;
+  XmlNode * PreviousSibling();
+  XmlNode * NextSibling() const;
+  XmlNode * NextSibling();
+  XmlNode * PreviousElement(const std::string & tag) const;
+  XmlNode * NextElement(const std::string & tag) const;
   
   /*
     Children
@@ -256,14 +245,10 @@ class XmlNode {
     // Get Last Child
     XmlNode * last_child = node.LastChild();
   */
-  const XmlNode * FirstChild() const;
-  XmlNode * FirstChild() {
-    return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->FirstChild());
-  }
-  const XmlNode * LastChild() const;
-  XmlNode * LastChild() {
-    return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->LastChild());
-  }
+  XmlNode * FirstChild() const;
+  XmlNode * FirstChild();
+  XmlNode * LastChild() const;
+  XmlNode * LastChild();
   
   /*
     XPath!
@@ -272,12 +257,8 @@ class XmlNode {
     
     It is coming soon!
   */
-  const XmlNode * XPath(const std::string & path) const;
-  XmlNode * XPath(const std::string & path) {
-    return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->XPath(path));
-  }
-  std::vector<const XmlNode * > XPaths(const std::string & path) const;
-  std::vector<XmlNode * > XPaths(const std::string & path);
+  //XmlNode * XPath(const std::string & path) const;
+  //XmlNdoe * XPath(const std::string & path);
 
   /*
     Value
@@ -291,46 +272,11 @@ class XmlNode {
   std::string tag() const;
   void set_tag(const std::string & tag);
   
-  std::string GetText() const;
-  
   /*
     XmlSpecial characters encoding and decoding
   */
   static std::string XmlSpecialCharEncode(std::string origin);
   static std::string XmlSpecialCharDecode(std::string origin);
-  
- protected:
-  /*
-    showIndent(indent) convert a number to string. A single
-    indent is two white space. And, negative value turns into
-    empty string
-  */
-  static std::string showIndent(int indetn);
-  
-  /*
-    Trim
-    lTrim - To delete spaces on the left side.
-    rTrim - To delete spaces on the right side.
-    trim  - To delete spaces on both sides.
-  */
-  static std::string lTrim(std::string str);
-  static std::string rTrim(std::string str);
-  static std::string trim(std::string str);
-  
-  /*
-    replaceAll
-    replaceAll - To replace all occurrence in the given
-                 string, not recursively.
-  */
-  static std::string replaceAll(std::string origin, // the Origin string
-                       const std::string & from, // old part
-                       const std::string & to // new part
-                       );
-  
-  /*
-    isWhiteSpace
-  */
-  static bool isWhiteSpace(const char c);
 
  private:
   /*
