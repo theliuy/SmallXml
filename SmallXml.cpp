@@ -3,78 +3,6 @@
 #include <functional>
 #include <stack>
 
-namespace {
-
-std::string showIndent(int indent) {
-  std::string str = "";
-  while (indent-- > 0)
-    str += "  ";
-
-  return str;
-}
-
-// trim from start
-std::string lTrim(std::string str) {
-  std::string::iterator it = 
-    find_if(str.begin(),
-            str.end(),
-            std::not1(std::ptr_fun(std::isspace)));
-  str.erase(str.begin(), it);
-  return str;
-}
-
-// trim from end
-std::string rTrim(std::string str) {
-  std::string::reverse_iterator it = 
-    find_if(str.rbegin(), 
-            str.rend(),
-            std::not1(std::ptr_fun(std::isspace)));
-  str.erase(it.base(), str.end());
-  return str;
-}
-
-// trim from both start and end
-inline std::string trim(std::string str) {
-  str = lTrim(rTrim(str));
-  return str;
-}
-
-// Replace all occurrence in the given string
-std::string replaceAll(std::string origin, // the Origin string
-                       const std::string & from, // old part
-                       const std::string & to // new part
-                       ) {
-  int from_size = from.size();
-  int to_size = to.size();
-  
-  if (0 == from_size)
-    return origin;
-    
-  int i = 0;
-  // It's funny. I should cast unsigned int to int
-  while (i < static_cast<int>(origin.size()) - from_size) {
-    if (0 == origin.compare(i, from_size, from)) {
-      origin.replace(i, from_size, to);
-      i += to_size;
-    } else {
-      ++i;
-    }
-  }
-  
-  return origin;                       
-}
-
-bool isWhiteSpace(const char c) {
-  return (' '  == c || 
-          '\n' == c ||
-          '\r' == c || 
-          '\t' == c || 
-          '\v' == c ||
-          '\f' == c);
-}
-
-}
-
 namespace SmallXml {
 
 /*
@@ -497,6 +425,11 @@ bool XmlNode::Read(const std::string & content, int & index) {
     return ReadNode(content, index);
 }
 
+void XmlNode::set_type(const enum NodeType type) {
+  // TODE considering to change tag_ and text_ or not.
+  type_ = type;
+}
+
 int XmlNode::type() const {
   return type_;
 }
@@ -514,23 +447,15 @@ std::string XmlNode::typeAsString() const {
   return "";
 }
 
-XmlNode * XmlNode::PreviousSibling() const {
+const XmlNode * XmlNode::PreviousSibling() const {
   return prev_;
 }
 
-XmlNode * XmlNode::PreviousSibling() {
-  return prev_;
-}
-
-XmlNode * XmlNode::NextSibling() const {
+const XmlNode * XmlNode::NextSibling() const {
   return next_;
 }
 
-XmlNode * XmlNode::NextSibling() {
-  return next_;
-}
-
-XmlNode * XmlNode::PreviousElement(const std::string & tag) const {
+const XmlNode * XmlNode::PreviousElement(const std::string & tag) const {
   XmlNode * scan = prev_;
   while(NULL != scan) {
     if (ELEMENT == scan->type_ && 
@@ -544,7 +469,7 @@ XmlNode * XmlNode::PreviousElement(const std::string & tag) const {
   return NULL;
 }
 
-XmlNode * XmlNode::NextElement(const std::string & tag) const {
+const XmlNode * XmlNode::NextElement(const std::string & tag) const {
   XmlNode * scan = next_;
   while (NULL != scan) {
     if (ELEMENT == scan->type_ &&
@@ -558,20 +483,28 @@ XmlNode * XmlNode::NextElement(const std::string & tag) const {
   return NULL;
 }
 
-XmlNode * XmlNode::FirstChild() const {
+const XmlNode * XmlNode::FirstChild() const {
   return first_child_;
 }
 
-XmlNode * XmlNode::FirstChild() {
-  return first_child_;
-}
-
-XmlNode * XmlNode::LastChild() const {
+const XmlNode * XmlNode::LastChild() const {
   return last_child_;
 }
 
-XmlNode * XmlNode::LastChild() {
-  return last_child_;
+const XmlNode * XmlNode::XPath(const std::string & path) const {
+  return NULL;
+}
+
+std::vector<const XmlNode * > XmlNode::XPaths(const std::string & path) const {
+  std::vector<const XmlNode * > result;
+  
+  return result;
+}
+
+std::vector<XmlNode * > XmlNode::XPaths(const std::string & path) {
+  std::vector<XmlNode * > result;
+  
+  return result;
 }
 
 std::string XmlNode::text() const {
@@ -602,6 +535,9 @@ void XmlNode::set_tag(const std::string & tag) {
   tag_ = XmlSpecialCharEncode(trim(tag));
 }
 
+std::string XmlNode::GetText() const {
+  return "";
+}
 
 // General string to xml string
 std::string XmlNode::XmlSpecialCharEncode(std::string str) {
@@ -624,6 +560,70 @@ std::string XmlNode::XmlSpecialCharDecode(std::string str) {
   str = replaceAll(str, "&amp;" , "&");
 
   return str;
+}
+
+
+std::string XmlNode::showIndent(int indent) {
+  std::string str = "";
+  while (indent-- > 0)
+    str += "  ";
+
+  return str;
+}
+
+// trim from start
+std::string XmlNode::lTrim(std::string str) {
+  std::string::iterator it = 
+    find_if(str.begin(),
+            str.end(),
+            std::not1(std::ptr_fun(std::isspace)));
+  str.erase(str.begin(), it);
+  return str;
+}
+
+// trim from end
+std::string XmlNode::rTrim(std::string str) {
+  std::string::reverse_iterator it = 
+    find_if(str.rbegin(), 
+            str.rend(),
+            std::not1(std::ptr_fun(std::isspace)));
+  str.erase(it.base(), str.end());
+  return str;
+}
+
+// trim from both start and end
+std::string XmlNode::trim(std::string str) {
+  str = lTrim(rTrim(str));
+  return str;
+}
+
+// Replace all occurrence in the given string
+std::string XmlNode::replaceAll(std::string origin, // the Origin string
+                                const std::string & from, // old part
+                                const std::string & to // new part
+                                ) {
+  int from_size = from.size();
+  int to_size = to.size();
+  
+  if (0 == from_size)
+    return origin;
+    
+  int i = 0;
+  // It's funny. I should cast unsigned int to int
+  while (i < static_cast<int>(origin.size()) - from_size) {
+    if (0 == origin.compare(i, from_size, from)) {
+      origin.replace(i, from_size, to);
+      i += to_size;
+    } else {
+      ++i;
+    }
+  }
+  
+  return origin;                       
+}
+
+bool XmlNode::isWhiteSpace(const char c) {
+  return ( isspace( (unsigned char) c ) || c == '\n' || c == '\r' );
 }
 
 /////////////////////////////////////////////
@@ -655,7 +655,7 @@ std::string XmlNode::ToStringAsElement(int indent) const {
   // Append children
   XmlNode * p_child;
   int child_indent = (-1 == indent) ? -1 : indent + 1;
-  for (p_child = this->FirstChild(); 
+  for (p_child = this->first_child_; 
        NULL != p_child; 
        p_child = p_child->NextSibling()) {
     result += p_child->ToString(child_indent);
@@ -1166,7 +1166,6 @@ void test_find() {
     cout << "Not Found\n";
   else
     cout << scan->ToString();
-
 }
 
 #endif
