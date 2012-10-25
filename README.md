@@ -39,6 +39,7 @@ SmallXml::XmlNode ele_node(SamllXml::XmlNode::ELEMENT, "TagName");
 
 ### Declaration
 Create a Declaration node with default encoding and version.
+
 By default, encoding is "UTF-8", and version is "1.1".
 
 ```cpp
@@ -78,7 +79,9 @@ When destucting a XmlNode object, all children nodes will be freed. Take care of
 ## Copy & Assignment
 
 XmlNode supports copy construction and override assignment operator, which can be used explicitly or implicilitly. 
+
 When do this operation, the children objects are copied into XmlNode, rather than copy the pointers. Thus, the newly copied children nodes are different objects from the old ones.
+
 Copy constructor can be call in the way below,
 
 ```cpp
@@ -124,7 +127,9 @@ The return values are shown below.
 ## ToString
 
 Convert the XmlNode to a string. This function is often used as "printing" function. ToString functions are based on type.
+
 ToString functions also accept a parameter as indence. One indence stands for two contigurous white spaces. By the way, a negative value indicates no indence. The default value is 0.
+
 For comment and text node, negative value is the same as 0. Declaration ignores this aagument. Element and Document nodes will pass this argument to their children to make a pretty display.
 
 ### Usage
@@ -194,9 +199,13 @@ All these function are overloaded. There is one which returns a const pointer, w
 ### Insertion
 
 These functions are only available to Element and Document. Or, nothing happens.
+
 `PushChild` - Insert a child node at the end of list
+
 `InsertChildBefore` - Insert a child before a target node
+
 `InsertChildAfter` - Insert a child after a target node
+
 Usage is shown as below.
 
 ```cpp
@@ -212,6 +221,7 @@ XmlNode * p_child3 = parent.InsertChildAfter(child3, p_child1);
 
 #### NOTE:
 When these functions called, the XmlNode object will be COPIED!
+
 If insertion successes, a pointer points to the new object in the DOM. If failed, they return null pointers. The newly allocated memory will be released when the parent object is destroyed.
 
 ### Status
@@ -219,6 +229,7 @@ If insertion successes, a pointer points to the new object in the DOM. If failed
 Here are two functions to get the status of one's child.
 
 `NumOfChildren()` returns the number of children. It is only effective to elements and document. It returns 0, if this object doesn't or is not allowed to have children.
+
 `HasChild()` returns true if and only if the node is element or document, and it has more than one child.
   
 ```cpp
@@ -297,11 +308,11 @@ node.RemoveAttribute(name);
 ```    
 
 #### NOTE:
-      Attributes is managed by a map struct. Thus if more than one values
-      are set to a consistant value, only the last one will be stored.
+Attributes is managed by a map struct. Thus if more than one values are set to a consistant value, only the last one will be stored.
 
 ### Attributes of Declaration
 In SmallXml version 0.1, only two attributes are supported by declaration node, version and encoding.
+
 By default, version will be "1.1" and encoding will be "UTF-8"
 
 Here are functions for these attributes. If they are called to a non-declaration node, setting won't occur, while getting returns an empty string.
