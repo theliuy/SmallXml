@@ -39,6 +39,7 @@ SmallXml::XmlNode ele_node(SamllXml::XmlNode::ELEMENT, "TagName");
 
 ### Declaration
 Create a Declaration node with default encoding and version.
+
 By default, encoding is "UTF-8", and version is "1.1".
 
 ```cpp
@@ -78,7 +79,9 @@ When destucting a XmlNode object, all children nodes will be freed. Take care of
 ## Copy & Assignment
 
 XmlNode supports copy construction and override assignment operator, which can be used explicitly or implicilitly. 
+
 When do this operation, the children objects are copied into XmlNode, rather than copy the pointers. Thus, the newly copied children nodes are different objects from the old ones.
+
 Copy constructor can be call in the way below,
 
 ```cpp
@@ -123,17 +126,213 @@ The return values are shown below.
 
 ## ToString
 
+Convert the XmlNode to a string. This function is often used as "printing" function. ToString functions are based on type.
+
+ToString functions also accept a parameter as indence. One indence stands for two contigurous white spaces. By the way, a negative value indicates no indence. The default value is 0.
+
+For comment and text node, negative value is the same as 0. Declaration ignores this aagument. Element and Document nodes will pass this argument to their children to make a pretty display.
+
+### Usage
+
+```cpp
+node.Tostring(1);
+```
+
+### Result
+
+#### Element
+
+The string includes a open tag with attributes and close tag. By the way, it will traverse the children and call their ToString funtions.
+
+```xml
+  <TAG_NAME name="value">
+    Chilren
+  </TAGNAME>
+```
+
+#### Comment
+
+The content will be quoted by comment syntax.
+
+```xml
+  <!-- Content of Comment -->
+```
+
+#### Text
+
+The string will be a plain text.
+
+```xml
+  Some text
+```
+
+#### Declaration
+
+The sample declaration is shown as below.
+
+```xml
+  <?xml version="1.1" encoding="UTF-8"?>
+```
+
+#### Document
+
+When invoking ToString of a document node, it will traverse all the children nodes and call their ToString functions.
+
 ## Child
+
+SmallXml provides functions for child operation. For the reason that only element and document nodes have child, nodes with other types will do "nothing" when called these functions.
+
+### Getting
+Return first or last child. If calling these functions to a non-child node, NULL will be returned.
+    
+```cpp
+// Get First Child
+XmlNode * first_child = node.FirstChild();
+
+// Get Last Child
+XmlNode * last_child = node.LastChild();
+```
+
+#### NOTE:
+All these function are overloaded. There is one which returns a const pointer, while another returns a non-restricted pointer.
+
+### Insertion
+
+These functions are only available to Element and Document. Or, nothing happens.
+
+`PushChild` - Insert a child node at the end of list
+
+`InsertChildBefore` - Insert a child before a target node
+
+`InsertChildAfter` - Insert a child after a target node
+
+Usage is shown as below.
+
+```cpp
+// Add child1 as parent's last Child
+XmlNode * p_child1 = parent.PushChild(child1);
+    
+// Add child2 before child1
+XmlNode * p_child2 = parent.InsertChildBefore(child2, p_child1);
+    
+// Add child3 after child1
+XmlNode * p_child3 = parent.InsertChildAfter(child3, p_child1);
+```
+
+#### NOTE:
+When these functions called, the XmlNode object will be COPIED!
+
+If insertion successes, a pointer points to the new object in the DOM. If failed, they return null pointers. The newly allocated memory will be released when the parent object is destroyed.
+
+### Status
+
+Here are two functions to get the status of one's child.
+
+`NumOfChildren()` returns the number of children. It is only effective to elements and document. It returns 0, if this object doesn't or is not allowed to have children.
+
+`HasChild()` returns true if and only if the node is element or document, and it has more than one child.
+  
+```cpp
+// Get number of child
+int num_children = node.NumOfChildren();
+
+// Check if the node has child
+bool has_child = node.HasChild();
+```
+
+#### NOTE:
+The number of children is what number of the first layer. It doesn't count recursively.
 
 ## XPath
 
+Under constructoin. It will be supported at version 0.2.
+
 ## Get Sibling
 
-## Attributes
+Get siblings. It return the next or previous nodes the current node. If it doesn't have siblings, these functions return NULL.
+Usage is shown below,
 
-## Attributes of Declaration
+```cpp
+// Get Previous sibling
+XmlNode * prev = node.PreviousSibling();
+
+// Get Next Sibling
+XmlNode * next = node.NextSibling();
+```
+
+Or, here are functions to get a sibling element with a given tag name.
+
+```cpp
+// Get Previous sibling element by tag
+XmlNode * prev_elem = node.PreviousElement(tag);
+    
+// Get Next sibling element by tag
+XmlNode * next_elem = node.NextElement(tag);
+```
+
+#### Note:
+All these function are overloaded. There is one which returns a const pointer, while another returns a non-restricted pointer.
+
+## Attributes
+Attributes is only available for element, declaration.
+    
+### Setting
+This function is only available for element, declaration. Or, nothing happens.
+
+```cpp
+// Set Attribute
+node.SetAttribute(name, value);
+
+// Set attribute by a string
+std::string str = "name=\"value\" name0=\"value0\"";
+node.SetAttributes(str);
+```
+
+### Getting
+This function is only available for element, declaration. Or, it returns an empty string.
+
+```cpp
+// Get Attribute
+std::string value = node.GetAttribute(name);
+
+// Get all attributes
+ std::vector<std::pair<std::string, std::string> > attributes = element.GetAttributes();
+```
+
+### Removing
+This function is only available for element, declaration. Or, nothing happens.
+
+```cpp
+// Remove Attribute by name
+node.RemoveAttribute(name);
+```    
+
+#### NOTE:
+Attributes is managed by a map struct. Thus if more than one values are set to a consistant value, only the last one will be stored.
+
+### Attributes of Declaration
+In SmallXml version 0.1, only two attributes are supported by declaration node, version and encoding.
+
+By default, version will be "1.1" and encoding will be "UTF-8"
+
+Here are functions for these attributes. If they are called to a non-declaration node, setting won't occur, while getting returns an empty string.
+
+```cpp
+// Setting
+declaration.SetVersion("1.2");
+declaration.SetEncoding("GBK");
+
+// Getting
+std::string version = declaration.GetVersion();
+std::string encoding = declaration.GetEncoding();
+```
 
 ## Clear
+Clear all children node and make itself a default element node
+
+```cpp
+node.Clear();
+```
 
 ## Read
 
