@@ -3,6 +3,8 @@
 #include <functional>
 #include <stack>
 
+#include <cstdio>
+
 namespace SmallXml {
 
 /*
@@ -491,20 +493,68 @@ const XmlNode * XmlNode::LastChild() const {
   return last_child_;
 }
 
+// Depth first search
 const XmlNode * XmlNode::XPath(const std::string & path) const {
+  std::vector<std::string> paths_vec = xpathSplit(path);
+  std::queue<std::string> paths;
+  const XmlNode * tmp_node = NULL;
+
+  if (0 == paths_vec.size())
+    return this;
+
+  for (size_t index = 0; index < paths_vec.size(); ++index)
+    paths.push(paths_vec[index]);
+
+  paths_vec.clear();
+
+  for (XmlNode *scan = first_child_; scan != NULL; scan = scan->next_) {
+    tmp_node = scan->xPathRec(paths);
+    if (NULL != tmp_node)
+      return tmp_node;
+  }
   return NULL;
 }
 
-std::vector<const XmlNode * > XmlNode::XPaths(const std::string & path) const {
-  std::vector<const XmlNode * > result;
+// Width first search
+const std::vector<const XmlNode * > XmlNode::XPaths_c(const std::string & path) const {
+  std::vector<const XmlNode * > vec[2];
+
+  vec[0].push_back(this);
+  unsigned int src_index = 0;
+  unsigned int des_index = 1;
+
+  std::vector<std::string> tags = xpathSplit(path);
+  for (size_t index = 0; index < tags.size(); ++index) {
+    if (0 == vec[src_index].size())
+      break;
+
+    for (size_t index_vec = 0; index_vec < vec[src_index].size(); ++index_vec) {
+      const XmlNode *tmp_node = vec[src_index][index_vec]->FirstChild();
+      while (NULL != tmp_node) {
+        if (ELEMENT == tmp_node->type() && tmp_node->tag() == tags[index]) {
+          vec[des_index].push_back(tmp_node);
+        }
+        tmp_node = tmp_node->NextSibling();
+      }
+    }
+
+    vec[src_index].clear();
+    src_index = des_index;
+    des_index = (src_index + 1) % 2;
+  }
   
-  return result;
+  return vec[src_index];
 }
 
 std::vector<XmlNode * > XmlNode::XPaths(const std::string & path) {
-  std::vector<XmlNode * > result;
-  
-  return result;
+  std::vector<XmlNode * > vec;
+  std::vector<const XmlNode * > c_vec = XPaths_c(path);
+
+  for (size_t index = 0; index < c_vec.size(); ++index) {
+    vec.push_back(const_cast<XmlNode *>(c_vec[index]));
+  }
+
+  return vec;
 }
 
 std::string XmlNode::text() const {
@@ -624,6 +674,27 @@ std::string XmlNode::replaceAll(std::string origin, // the Origin string
 
 bool XmlNode::isWhiteSpace(const char c) {
   return ( isspace( (unsigned char) c ) || c == '\n' || c == '\r' );
+}
+
+std::vector<std::string> XmlNode::xpathSplit(const std::string & path) {
+  std::vector<std::string> vec;
+  size_t start = 0;
+  size_t index = 0;
+
+  for (; index < path.length(); ++index) {
+    if (path[index] == '/') {
+      if (index > start) {
+        vec.push_back(path.substr(start, index - start));
+      }
+      start = index + 1;
+    }
+  }
+
+  if (index > start) {
+    vec.push_back(path.substr(start, index - start));
+  }
+
+  return vec;
 }
 
 /////////////////////////////////////////////
@@ -951,10 +1022,37 @@ void XmlNode::EatWhiteSpace(const std::string & content, int & start) {
   }
 }
 
+const XmlNode * XmlNode::xPathRec(std::queue<std::string> paths)const {
+  const XmlNode * return_node = NULL;
+
+  if (0 == paths.size())
+    return NULL;
+
+  if (1 == paths.size() &&
+      ELEMENT == type_ &&
+      tag_ == paths.front()) {
+    return this;
+  }
+  
+  if (ELEMENT == type_ && 
+      tag_ == paths.front()) {
+    paths.pop();
+    for (XmlNode *scan = first_child_;
+        scan != NULL;
+        scan = scan->next_) {
+      return_node = scan->xPathRec(paths);
+    
+      if (NULL != return_node)
+        return return_node;
+    }
+  }
+
+  return NULL;
 }
 
-#define TEST_SMALLXML
-#ifdef TEST_SMALLXML
+}
+
+#ifdef DEMO_SMALLXML
 
 #include <iostream>
 
@@ -969,16 +1067,31 @@ void test_inserts();
 void test_parser();
 // Test Find and XPath
 void test_find();
+// Text XPath
+void test_xpath();
 
 
 int main(int argc, char ** argv) {
+
+#ifdef DEMO_TOSTRING
   test_ToString();
-  
+#endif
+
+#ifdef DEMO_INSERTS
   test_inserts();
+#endif
   
+#ifdef DEMO_PARSER
   test_parser();
+#endif
   
+#ifdef DEMO_FIND
   test_find();
+#endif
+
+#ifdef DEMO_XPATH
+  test_xpath();
+#endif
 
   return 0;
 }
@@ -1122,7 +1235,6 @@ void test_find() {
   XmlNode node_0_0(XmlNode::ELEMENT, "SU");
   
   XmlNode * p_node_1_0 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "LCSmith"));
-  cout << p_node_1_0;
   p_node_1_0->set_text("The 1st LCSmith");
   XmlNode * p_node_1_1 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "Whitman"));
   XmlNode * p_node_1_2 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "Maxwell"));
@@ -1166,6 +1278,41 @@ void test_find() {
     cout << "Not Found\n";
   else
     cout << scan->ToString();
+
+}
+
+void test_xpath() {
+  XmlNode node_0_0(XmlNode::ELEMENT, "SU");
+  
+  XmlNode * p_node_1_0 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "LCSmith"));
+  p_node_1_0->set_text("The 1st LCSmith");
+  XmlNode * p_node_1_0_0 = p_node_1_0->PushChild(XmlNode(XmlNode::ELEMENT, "EECS"));
+  p_node_1_0_0->set_text("EECS Content");
+  XmlNode * p_node_1_1 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "Whitman"));
+  XmlNode * p_node_1_2 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "Maxwell"));
+  XmlNode * p_node_1_3 = node_0_0.PushChild(XmlNode(XmlNode::ELEMENT, "LCSmith"));
+  p_node_1_3->set_text("Another LCSmith");
+  p_node_1_3->PushChild(XmlNode(XmlNode::ELEMENT, "EECS"));
+  
+  cout << "\nA huge node\n";
+  cout << node_0_0.ToString();
+
+  cout << "\nXPaths: /LCSmith\n";
+  std::vector <const XmlNode *> xpaths_0 = node_0_0.XPaths_c("/LCSmith");
+  for (size_t index = 0; index < xpaths_0.size(); ++index)
+    cout << xpaths_0[index]->ToString();
+
+  cout << "\nXPaths: /LCSmith/EECS/\n";
+  std::vector <XmlNode *> xpaths_1 = node_0_0.XPaths("/LCSmith/EECS");
+  for (size_t index = 0; index < xpaths_1.size(); ++index)
+    cout << xpaths_1[index]->ToString();
+
+  cout << "\nXPaths: /LCSmith/EECS\n";
+  const XmlNode * p_found = node_0_0.XPath("/LCSmith/EECS");
+  if (NULL != p_found)
+    cout << p_found->ToString();
+  else
+    cout << "NOT FOUND\n";
 }
 
 #endif

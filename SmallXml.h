@@ -12,6 +12,7 @@ Author: Yang Liu
 #include <string>
 #include <map>
 #include <vector>
+#include <queue>
 
 namespace SmallXml {
 
@@ -276,7 +277,8 @@ class XmlNode {
   XmlNode * XPath(const std::string & path) {
     return const_cast<XmlNode * >( (const_cast<const XmlNode * >(this))->XPath(path));
   }
-  std::vector<const XmlNode * > XPaths(const std::string & path) const;
+
+  const std::vector<const XmlNode * > XPaths_c(const std::string & path) const;
   std::vector<XmlNode * > XPaths(const std::string & path);
 
   /*
@@ -332,6 +334,11 @@ class XmlNode {
   */
   static bool isWhiteSpace(const char c);
 
+  /*
+    split a xpath string into pieces
+  */
+  static std::vector<std::string> xpathSplit(const std::string & path);
+
  private:
   /*
     ToString by type
@@ -354,6 +361,8 @@ class XmlNode {
   void EatWhiteSpace(const std::string & content, int & start);
   bool ReadNode(std::string content, int & index);
   bool ReadDocument(std::string content, int & index);
+
+  const XmlNode * xPathRec(std::queue<std::string> paths) const;
 
   // Type of this node
   NodeType type_;
