@@ -245,7 +245,21 @@ The number of children is what number of the first layer. It doesn't count recur
 
 ## XPath
 
-Under constructoin. It will be supported at version 0.2.
+Supported after version 0.2.
+
+XPath is used to locates a node in an element or document node. Comment, declaration and text nodes don't have children, thus, `XPath` returns null. The usage is shown as below.
+
+```cpp
+// Get the first matched node
+XmlNode * p_found = node_0_0.XPath(/path0/path1");
+
+// Get all matched nodes
+std::vector <XmlNode *> xpaths_0 = node_0_0.XPaths("/path0/path1");
+std::vector <const XmlNode *> xpaths_1 = node_0_0.XPaths_c(/path0/path1");  
+```
+
+`XPath` is implemented with depth first search to find the first match node, or returns null.
+`XPaths` and `XPaths_c` are implemented with breadth first search to find all matched nodes, or return a empty vectore. The only difference between them is the `XPaths_c` returns a vector of const pointers to XmlNode object, while `XPaths` returns non-constant pointers.
 
 ## Get Sibling
 
@@ -336,9 +350,61 @@ node.Clear();
 
 ## Read
 
+SmallXml supports reading a Xml in plain text into a XmlNode object. Usage is shown as below.
+
+```cpp
+// A xml in plan string
+std::string text = "<tag>Some Content</tag>"
+
+// Sample 0
+XmlNode node;
+node.Read(text);
+
+// Sample 1
+// Or,
+int index = 0;
+node.Read(text, &index);
+```
+
+In the sample 0, if the given text is a valid xml, the node becomes a object, or to be a default element node.
+
+In the sample 1, the argument "index" is the location of where the parsing starts. By the way, the index will be modified as the index of the last valid character, which can be used to track parsing procedure.
+
 ## Text & Tag
+
+text_ and tag_ are two private members of XmlNode object. Several public functions are provided to access them.
+
+```cpp
+// Get tag
+std::string tag = node.tag();
+// Set tag
+node.set_tag(given_tag);
+
+// Get text
+std::string text = node.text();
+// Set text
+node.set_text(given_text);
+```
+
+Both `set_tag` and `set_text` will encode the given string. And both `tag` and `text` will return decoded characters.
+
+While, tag_ and text_ have deferent meaning to nodes with deferent types.
+
+<table>
+<tr><td>type</td><td>tag_</td><td></td></tr>
+<tr><td>ELEMENT</td><td>The tag of this node</td><td>Not used after version 0.2</td></tr>
+<tr><td>DECLARATION</td><td>Not used</td><td>Not used</td></tr>
+<tr><td>COMMENT</td><td>Not used</td><td>The content of this comment</td></tr>
+<tr><td>TEXT</td><td>Not used</td><td>The content of text node</td></tr>
+<tr><td>DOCUMENT</td><td>Not used</td><td>Not used</td></tr>
+</table>
 
 ## Xml Special Character Encoding & Decoding
 
-## Protected Text Processing Functions
+```cpp
+std::string decoded_string = XmlNode::XmlSpecialCharDecode(encoded);
 
+std::string enocded_string = XmlNode::XmlSpecialCharEncode(decoded);
+```
+
+XmlNode also provides static functions to encode and decode string. `XmlSpecialCharDecode` converses xml special characters into plain text, while `XmlSpecialCharEncode` encodes the given plain text into a string with xml special characters.
