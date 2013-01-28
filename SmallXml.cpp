@@ -585,8 +585,12 @@ void XmlNode::set_tag(const std::string & tag) {
   tag_ = XmlSpecialCharEncode(trim(tag));
 }
 
-std::string XmlNode::GetText() const {
-  return "";
+std::string XmlNode::GetDecodedTag() const {
+  return XmlSpecialCharDecode(tag_);
+}
+
+std::string XmlNode::GetDecodedText() const {
+  return XmlSpecialCharDecode(text_);
 }
 
 // General string to xml string
@@ -799,7 +803,7 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   if (0 > start || start >= content.size()) {
     return NULL;
   }
-  
+
   XmlNode * result_node = NULL;
   
   // TEXT
@@ -815,78 +819,60 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
     return result_node;
   }
   
+  start++;
   // Comment
-  if (start + 3 < content.size() && 
-      '!' == content[start + 1] &&
-      '-' == content[start + 2] &&
-      '-' == content[start + 3]) {
+    if (MatchedStr(content, start, "!--")) {
     std::string text = "";
-    start += 4;
     do {
+      if (MatchedStr(content, start, "-->")) {
+        result_node = new XmlNode(COMMENT, text);
+        flag = SELF_CLOSE_TAG;
+        id = "";
+        return result_node;
+      }
       text += content[start++];
-    } while (start + 2 < content.size() && 
-             !('-' == content[start] && '-' == content[start + 1] &&  '>' == content[start + 2]));
-    
-    // Check close tag "--!>"
-    if (start + 2 >= content.size())
-      return NULL;
-    
-    result_node = new XmlNode(COMMENT, text);
-    flag = SELF_CLOSE_TAG;
-    id = "";
-    start += 3;
-    return result_node;
+    } while (start < content.size());
+    return NULL;
   }
   
   // Declaration
-  if (start + 4 < content.size() && 
-      '?' == content[start + 1]  &&
-      'x' == content[start + 2]  &&
-      'm' == content[start + 3]  &&
-      'l' == content[start + 4]) {
+  if (MatchedStr(content, start, "?xml")) {
     std::string text = "";
-    start += 4;
-
-    while (++start < content.size() && 
-           !('?' == content[start] && '>' == content[start + 1])) {
-      text += content[start]; 
-    }
-    
-    if (start >= content.size())
-      return NULL;
-    
-    result_node = new XmlNode(DECLARATION);
-    result_node->SetAttributes(text);
-    flag = SELF_CLOSE_TAG;
-    id = "";
-    start += 3;
-    return result_node; 
+    do {
+      if (MatchedStr(content, start, "?>")) {
+        result_node = new XmlNode(DECLARATION);
+        result_node->SetAttributes(text);
+        flag = SELF_CLOSE_TAG;
+        id = "";
+        return result_node;
+      }
+      text += content[start++];
+    } while (start < content.size());
+    return NULL;
   }
   
   // ELEMENT
   // Close tag
-  if (start + 1 < content.size() &&
-      '/' == content[start + 1]) {
-    ++start;
+  if (MatchedStr(content, start, "/")) {
     id = "";
-    while (++start < content.size() &&
-           '>' != content[start]) {
+    do {
+      if (MatchedStr(content, start, ">")) {
+        flag = CLOSE_TAG;
+        id = XmlSpecialCharEncode(trim(id));
+        return result_node;
+      }
       id += content[start]; 
-    }
-    if (start < content.size() && !id.empty())
-      flag = CLOSE_TAG;
-    start += 1;
-    id = XmlSpecialCharEncode(trim(id));
-    return result_node;
+    } while (++start < content.size());
+    return NULL;
   }
   
   // OPEN TAG
   std::string tag_str = "";
   // Parse Tag;
-  while (++start < content.size()      &&
+  while (start < content.size() &&
          !isWhiteSpace(content[start]) &&
          '>' != content[start]) {
-    tag_str += content[start];
+    tag_str += content[start++];
   }
   
   // Parse Attribute
@@ -906,6 +892,29 @@ XmlNode * XmlNode::ParseNext(const std::string & content, // Content to Parse
   ++start;
   
   return result_node;
+}
+
+bool XmlNode::MatchedStr(
+  const std::string & content, 
+  int & index,
+  const std::string & query) const {
+
+  if (query.empty())
+    return true;
+
+  if (index + query.size() - 1 >= content.size())
+    return false;
+
+  int old_index = index;
+  EatWhiteSpace(content, index);
+  for (size_t query_i = 0; query_i < query.size(); ++query_i) {
+    if (query[query_i] != content[index++]) {
+      index = old_index;
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool XmlNode::ReadNode(std::string content, int & index) {
@@ -1007,7 +1016,7 @@ bool XmlNode::ReadDocument(std::string content, int & index) {
   return true;
 }
 
-void XmlNode::EatWhiteSpace(const std::string & content, int & start) {
+void XmlNode::EatWhiteSpace(const std::string & content, int & start) const {
   if (0 > start)
     start = 0;
 
@@ -1156,7 +1165,7 @@ void test_parser() {
   cout << "\n----- Test Parser -----\n";
   
   int index = 0;
-  
+
   cout << "\nText\n";
   cout << "Origin\n";
   XmlNode text_node(XmlNode::TEXT, "hello world");
@@ -1168,33 +1177,32 @@ void test_parser() {
   cout << result_text_node.ToString(1);
   cout << "size = " << text.size() << "\n";
   cout << "index = " << index << "\n";
-  
+
   cout << "\nComment\n";
   cout << "Origin\n";
   XmlNode comment_node(XmlNode::COMMENT, "This is a comment");
-  string comment = comment_node.ToString(1);
-  cout << comment;
+  string comment = comment_node.ToString(-1);
+  cout << comment << "\n";
   cout << "Parsed\n";
   XmlNode result_comment_node;
   index = 0;
-  result_comment_node.Read(comment, index);
-  cout << result_comment_node.ToString(1);
+  result_comment_node.Read(comment + comment, index);
+  cout << result_comment_node.ToString(-1) << "\n";
   cout << "size = " << comment.size() << "\n";
   cout << "index = " << index << "\n";
   
   cout << "\nDeclaration\n";
   cout << "Origin\n";
   XmlNode dec_node(XmlNode::DECLARATION);
-  string dec = dec_node.ToString(1);
-  cout << dec;
+  string dec = dec_node.ToString(-1);
+  cout << dec << "\n";
   cout << "Parsed\n";
   XmlNode result_dec_node;
   index = 0;
   result_dec_node.Read(dec, index);
-  cout << result_dec_node.ToString(1);
+  cout << result_dec_node.ToString(-1) << "\n";
   cout << "size = " << dec.size() << "\n";
   cout << "index = " << index << "\n";
-  
   
   cout << "\nELEMENT\n";
   cout << "Origin\n";
@@ -1203,7 +1211,7 @@ void test_parser() {
   ele_node1.SetAttribute("New key", "new value");
   XmlNode ele_node2(XmlNode::COMMENT, "Some Comment");
   XmlNode ele_node3(XmlNode::ELEMENT, "Child");
-  ele_node1.PushChild(ele_node2);
+  //ele_node1.PushChild(ele_node2);
   ele_node1.PushChild(ele_node3);
   string ele = ele_node1.ToString(-1);
   cout << ele_node1.ToString(-1) << "\n";
@@ -1227,7 +1235,7 @@ void test_parser() {
   cout << "next char = '" << conj[index] << "'\n";
   cout << "size = " << conj.size() << "\n";
   cout << "index = " << index << "\n";
-  
+
   return;
 }
 
