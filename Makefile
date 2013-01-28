@@ -18,3 +18,10 @@ demo_find: SmallXml.cpp SmallXml.h
 
 demo_xpath: SmallXml.cpp SmallXml.h
 	g++ -o Demo_XPath -DDEMO_SMALLXML -DDEMO_XPATH SmallXml.cpp
+
+clean_demos: SmallXml.cpp SmallXml.h
+	rm Demo_*
+  
+clean_all: SmallXml.cpp SmallXml.h
+	rm -f Demo_*
+	rm -f *.o 

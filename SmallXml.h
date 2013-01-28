@@ -287,13 +287,17 @@ class XmlNode {
       Content of Comment
       Plain Text of Element
     Set - Set the value above
+
+    GetText
+      Get decoded text.
   */
   std::string text() const;
   void set_text(const std::string & text);
   std::string tag() const;
   void set_tag(const std::string & tag);
   
-  std::string GetText() const;
+  std::string GetDecodedTag() const;
+  std::string GetDecodedText() const;
   
   /*
     XmlSpecial characters encoding and decoding
@@ -357,8 +361,11 @@ class XmlNode {
                       int & start,                   // Parse index
                       NodeParseFlag & flag,        // flag of result
                       std::string & id);           // id for element parsing
-                      
-  void EatWhiteSpace(const std::string & content, int & start);
+  bool MatchedStr(const std::string & content, 
+                  int & index, 
+                  const std::string & query) const;
+
+  void EatWhiteSpace(const std::string & content, int & start) const;
   bool ReadNode(std::string content, int & index);
   bool ReadDocument(std::string content, int & index);
 
