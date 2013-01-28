@@ -377,16 +377,22 @@ text_ and tag_ are two private members of XmlNode object. Several public functio
 ```cpp
 // Get tag
 std::string tag = node.tag();
+// Get decoded tag
+std::string decoded_tag = node.GetDecodedTag();
 // Set tag
 node.set_tag(given_tag);
 
 // Get text
 std::string text = node.text();
+// Get decoded text
+std::string decoded_text = node.GetDecodedText();
 // Set text
 node.set_text(given_text);
 ```
 
 Both `set_tag` and `set_text` will encode the given string. And both `tag` and `text` will return decoded characters.
+
+`GetDecodedTag` and `GetDecodedText` return the decoded text_ and tag_.
 
 While, tag_ and text_ have deferent meaning to nodes with deferent types.
 
